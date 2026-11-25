@@ -48,20 +48,31 @@ def png_size(path):
     return struct.unpack(">II", head[16:24])
 
 
+def verify_placed(placed):
+    """True when the placed copy is a genuine 1024x1024 copy of the bundle.
+
+    Checks the PNG header size first, then the digest of the placed copy
+    and of the bundled original, so a damaged bundle fails here too.
+    """
+    if png_size(placed) != EXPECTED_SIZE:
+        print(f"bad size {png_size(placed)}, expected {EXPECTED_SIZE}",
+              file=sys.stderr)
+        return False
+    if file_sha256(placed) != EXPECTED_SHA256:
+        print("placed copy digest mismatch", file=sys.stderr)
+        return False
+    if file_sha256(SOURCE) != EXPECTED_SHA256:
+        print("bundled image digest mismatch", file=sys.stderr)
+        return False
+    return True
+
+
 def run():
     DEST_DIR.mkdir(parents=True, exist_ok=True)
     placed = DEST_DIR / "entry.png"
     shutil.copyfile(SOURCE, placed)
 
-    if png_size(placed) != EXPECTED_SIZE:
-        print(f"bad size {png_size(placed)}, expected {EXPECTED_SIZE}",
-              file=sys.stderr)
-        return 1
-    if file_sha256(placed) != EXPECTED_SHA256:
-        print("placed copy digest mismatch", file=sys.stderr)
-        return 1
-    if file_sha256(SOURCE) != EXPECTED_SHA256:
-        print("bundled image digest mismatch", file=sys.stderr)
+    if not verify_placed(placed):
         return 1
 
     print(f"wrote {placed} ({placed.stat().st_size} bytes, "
